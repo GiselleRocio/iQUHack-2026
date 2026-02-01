@@ -11,12 +11,12 @@ Each edge holds \( N \) identical Werner-like Bell pairs with initial fidelity \
 
 The fidelity is measured with respect to the maximally entangled Bell state:
 
-\[
+$$
 \lvert \Phi^+ \rangle = \frac{1}{\sqrt{2}} ( \lvert 00 \rangle + \lvert 11 \rangle ),
 \qquad
 F = |\langle \Phi^+ | \psi \rangle|^2
 \tag{1}
-\]
+$$
 
 A noisy Bell pair under a depolarizing channel can be modeled as a Werner state:
 
@@ -125,3 +125,4 @@ Our automated solver:
 - Preserves resources for high-value, successful claims
 
 ---
+
