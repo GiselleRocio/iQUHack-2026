@@ -1,144 +1,127 @@
-# iQuHack 2026 - Quantum Entanglement Distillation Game
+# Quantum Entanglement Distillation for Network Edge Claiming
 
-Please, submit your results using the following link: https://forms.gle/ReUmUwEoQ2qw7PNs8
-
-A competitive quantum networking game where players build subgraphs by claiming edges through entanglement distillation.
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Start Playing
-
-Open `demo.ipynb` in Jupyter or VS Code:
-
-```bash
-jupyter notebook demo.ipynb
-```
-
-The notebook walks you through registration, gameplay, and circuit design.
+**MIT iQuHack 2026 — Team Report**
 
 ---
 
-## Game Overview
+## 1. Problem Formulation
 
-**Objective**: Build a quantum network subgraph to maximize your score.
+We consider a quantum network graph \( G(V, E) \) where edges represent noisy entanglement links.  
+Each edge holds \( N \) identical Werner-like Bell pairs with initial fidelity \( F_0 < F_{\text{th}} \), where \( F_{\text{th}} \) is the threshold for claiming.
 
-**How It Works**:
-1. Register with a unique player ID
-2. Select a starting node from candidates
-3. Design distillation circuits to improve noisy Bell pair fidelity
-4. Claim edges by beating fidelity thresholds
-5. Earn points from nodes with utility qubits
-6. Manage your limited bell pair budget
+The fidelity is measured with respect to the maximally entangled Bell state:
 
-**Key Mechanics**:
-- **Graph**: Quantum network with nodes (utility qubits) and edges (entanglement links)
-- **Distillation**: Submit circuits to purify noisy Bell pairs
-- **Thresholds**: Achieve fidelity >= threshold to claim an edge
-- **Budget**: Limited bell pairs for distillation attempts
-- **Scoring**: Sum of utility qubits from owned nodes
+\[
+\lvert \Phi^+ \rangle = \frac{1}{\sqrt{2}} ( \lvert 00 \rangle + \lvert 11 \rangle ),
+\qquad
+F = |\langle \Phi^+ | \psi \rangle|^2
+\tag{1}
+\]
 
----
+A noisy Bell pair under a depolarizing channel can be modeled as a Werner state:
 
-## Repository Structure
+\[
+\rho_W = F \lvert \Phi^+ \rangle \langle \Phi^+ \rvert
++ \frac{1 - F}{3} \sum_{i \neq \Phi^+} \lvert B_i \rangle \langle B_i \rvert
+\tag{2}
+\]
 
-```
-iQuHack2026/
-├── demo.ipynb         # Interactive tutorial - START HERE
-├── client.py          # GameClient class (API wrapper)
-├── visualization.py   # GraphTool class (graph rendering)
-├── game_handbook.md   # Detailed game rules
-├── requirements.txt   # Python dependencies
-└── README.md          # This file
-```
+where  
+\(\{ B_i \} = \{ \lvert \Phi^\pm \rangle, \lvert \Psi^\pm \rangle \}\) is the Bell basis.
+
+Our objective is to design **LOCC (Local Operations and Classical Communication)** circuits that distill high-fidelity entangled pairs from noisy inputs.
 
 ---
 
-## SDK Usage
+## 2. BBPSSW Protocol Implementation
 
-### GameClient
+We implement the **Bennett–Brassard–Popescu–Schumacher–Smolin–Wootters (BBPSSW)** protocol for \( N = 2 \) Bell pairs.
 
-```python
-from client import GameClient
+**Qubit pairing (outside-in convention):**
+- Ancilla pair: \( (q_0, q_3) \)
+- Data pair: \( (q_1, q_2) \)
 
-client = GameClient()
-result = client.register("player_id", "Name", location="remote")
+### BBPSSW Distillation Protocol (\(N = 2\))
 
-# Select starting node
-client.select_starting_node(node_id)
+The protocol applies **bilateral CNOT gates** locally:
 
-# Get claimable edges
-claimable = client.get_claimable_edges()
+- Alice: \( \text{CNOT}_{1 \rightarrow 0} \)
+- Bob: \( \text{CNOT}_{2 \rightarrow 3} \)
 
-# Claim an edge with a circuit
-result = client.claim_edge(edge, circuit, flag_bit, num_bell_pairs)
+\[
+U_{\text{LOCC}} =
+(I_B \otimes \text{CX}_{2 \rightarrow 3})
+\cdot
+(\text{CX}_{1 \rightarrow 0} \otimes I_B)
+\tag{3}
+\]
 
-# Check status
-client.print_status()
-```
+After measuring ancilla qubits \( q_0 \) and \( q_3 \), we apply **post-selection** using a parity check:
 
-### GraphTool
+\[
+\text{flag} = c_0 \oplus c_1 = 0 \;\Rightarrow\; \text{accept}
+\tag{4}
+\]
 
-```python
-from visualization import GraphTool
+For input Werner states with fidelity \( F_0 \), the output fidelity is:
 
-viz = GraphTool(client.get_cached_graph())
-owned = set(status.get('owned_nodes', []))
+\[
+F_{\text{out}} =
+\frac{F_0^2 + \frac{1}{9}(1 - F_0)^2}
+{F_0^2 + \frac{2}{3}F_0(1 - F_0) + \frac{5}{9}(1 - F_0)^2}
+\tag{5}
+\]
 
-# Render focused view (nodes within 2 hops)
-viz.render(owned, radius=2)
+The **success probability** is:
 
-# Text summary
-viz.print_summary(owned)
-```
+\[
+P_{\text{succ}} =
+F_0^2 + \frac{2}{3}F_0(1 - F_0) + \frac{5}{9}(1 - F_0)^2
+\]
 
----
-
-## API Endpoints
-
-Base URL: `https://demo-entanglement-distillation-qfhvrahfcq-uc.a.run.app`
-
-**Public**:
-- `GET /v1/graph` - Get graph structure
-- `GET /v1/leaderboard` - Get player rankings
-
-**Protected** (Bearer token required):
-- `POST /v1/register` - Register player (returns api_token)
-- `POST /v1/select_starting_node` - Choose starting node
-- `POST /v1/claim_edge` - Submit distillation circuit
-- `GET /v1/status/{player_id}` - Get player status
-- `POST /v1/restart` - Reset progress
+Distillation succeeds when \( F_0 > 0.5 \), yielding \( F_{\text{out}} > F_0 \).
 
 ---
 
-## Strategy Tips
+## 3. DEJMPS Variant
 
-1. **Starting Node**: Balance utility qubits vs. bonus bell pairs
-2. **Edge Claiming**: Start with low-difficulty edges
-3. **Circuit Design**: More bell pairs improve fidelity but cost more budget
-4. **Budget**: Failed attempts are free - only successful claims cost bell pairs
+We also implement a **Deutsch–Ekert–Jozsa–Macchiavello–Popescu–Sanpera (DEJMPS)** inspired variant, which handles phase errors more effectively.
+
+The modification applies **Hadamard gates** to the ancilla qubits before the bilateral CNOTs:
+
+\[
+U_{\text{DEJMPS}} =
+U_{\text{LOCC}} \cdot
+(H_0 \otimes I \otimes I \otimes H_3)
+\tag{6}
+\]
+
+This basis transformation allows the protocol to correct both:
+- Bit-flip errors (\(X\))
+- Phase-flip errors (\(Z\))
+
+For asymmetric noise channels where \( p_X \neq p_Z \), this variant can outperform the standard BBPSSW protocol.
 
 ---
 
-## Troubleshooting
+## 4. Competitive Strategy
 
-**"Module not found"**: Run `pip install -r requirements.txt`
+The **claim strength** for a vertex is computed as:
 
-**"Invalid token"**: Re-register or use saved session token
+\[
+S = \sum_{i=1}^{n} \frac{F_i \cdot P_i}{\sqrt{r_i}}
+\tag{7}
+\]
 
-**Visualization not showing**: Install matplotlib: `pip install matplotlib`
+where:
+- \( F_i \) is the achieved fidelity
+- \( P_i \) is the success probability
+- \( r_i \) is the rank of edge \( i \), sorted by fidelity
+
+Our automated solver:
+- Prioritizes edges by **difficulty rating** and **threshold**
+- Iteratively applies BBPSSW and DEJMPS protocols until \( F \geq F_{\text{th}} \)
+- Does **not consume budget on failed attempts**, enabling aggressive exploration
+- Preserves resources for high-value, successful claims
 
 ---
-
-## Support
-
-See `demo.ipynb` for comprehensive examples. For issues, check the game handbook or ask the organizers.
-
-Good luck!
